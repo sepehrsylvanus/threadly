@@ -1,7 +1,7 @@
 import { createNeonAuth } from "@neondatabase/auth/next/server";
 import { cache } from "react";
 import { ensureUserProfile } from "./db/user-profile";
-import { User } from "./db/types";
+import { User } from "./types";
 
 export const auth = createNeonAuth({
   baseUrl: process.env.NEON_AUTH_BASE_URL!,

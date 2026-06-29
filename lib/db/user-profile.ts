@@ -1,5 +1,5 @@
-import { prisma } from "./prisma";
-import { User } from "./types";
+import { prisma } from "../prisma";
+import { User } from "../types";
 
 function generateUsername(name: string): string {
   const base =
