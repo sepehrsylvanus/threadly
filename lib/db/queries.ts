@@ -1,6 +1,6 @@
 import { PostModel } from "../generated/prisma/models";
 import { prisma } from "../prisma";
-import { FeedSort, Post, Tag, User } from "../types";
+import { FeedSort, Post, Tag, User, VoteTarget } from "../types";
 
 export async function batchAuthorsForIds(
   authorIds: string[],
@@ -51,15 +51,22 @@ export async function listPostsSorted(
   const ids = postRows.map((p) => p.id);
   if (ids.length === 0) return [];
 
-  const [tagMap] = await Promise.all([tagsForPosts(ids)]);
+  const [tagMap, ccMap, vsMap, uvMap] = await Promise.all([
+    tagsForPosts(ids),
+    commentCountsForPosts(ids),
+    voteSumsForPosts(ids),
+    userVotesForPosts(userId, ids),
+  ]);
 
   const mapped = postRows.map((row) => {
     const slugs = tagMap.get(row.id) ?? [];
+    const cc = ccMap.get(row.id) ?? 0;
+    const vs = vsMap.get(row.id) ?? 0;
     return {
-      post: mapPostRow(row, slugs, 65),
-      voteScore: 2,
+      post: mapPostRow(row, slugs, cc),
+      voteScore: vs,
       created: row.createdAt.getTime(),
-      userVote: 1,
+      userVote: uvMap.get(row.id) ?? 0,
     };
   });
 
@@ -110,6 +117,79 @@ async function tagsForPosts(postIds: string[]): Promise<Map<string, string[]>> {
   return m;
 }
 
+export async function getPostById(id: string): Promise<Post | undefined> {
+  const row = await prisma.post.findUnique({ where: { id } });
+  if (!row) return undefined;
+
+  const [tagMap, ccMap] = await Promise.all([
+    tagsForPosts([id]),
+    commentCountsForPosts([id]),
+  ]);
+
+  return mapPostRow(row, tagMap.get(id) ?? [], ccMap.get(id) ?? 0);
+}
+
+export async function getAuthorById(authorId: string): Promise<User> {
+  const row = await prisma.userProfile.findUnique({ where: { id: authorId } });
+  return row
+    ? { id: row.id, username: row.username }
+    : { id: authorId, username: `user_${authorId.slice(0, 6)}` };
+}
+
+async function voteSumsForPosts(
+  postIds: string[],
+): Promise<Map<string, number>> {
+  if (postIds.length === 0) return new Map();
+  const rows = await prisma.vote.groupBy({
+    by: ["targetId"],
+    where: {
+      targetType: "post",
+      targetId: { in: postIds },
+    },
+    _sum: { value: true },
+  });
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    m.set(r.targetId, Number(r._sum.value ?? 0));
+  }
+  return m;
+}
+
+async function userVotesForPosts(
+  userId: string | undefined,
+  postIds: string[],
+): Promise<Map<string, -1 | 0 | 1>> {
+  const m = new Map<string, -1 | 0 | 1>();
+  if (!userId || postIds.length === 0) return m;
+  const rows = await prisma.vote.findMany({
+    where: {
+      userId,
+      targetType: "post",
+      targetId: { in: postIds },
+    },
+  });
+  for (const r of rows) {
+    const v = r.value;
+    m.set(r.targetId, v === -1 || v === 1 ? v : 0);
+  }
+  return m;
+}
+async function commentCountsForPosts(
+  postIds: string[],
+): Promise<Map<string, number>> {
+  if (postIds.length === 0) return new Map();
+  const rows = await prisma.comment.groupBy({
+    by: ["postId"],
+    where: { postId: { in: postIds } },
+    _count: { _all: true },
+  });
+  const m = new Map<string, number>();
+  for (const r of rows) {
+    m.set(r.postId, r._count._all);
+  }
+  return m;
+}
+
 function mapPostRow(
   row: PostModel,
   tagSlugs: string[],
@@ -124,4 +204,26 @@ function mapPostRow(
     createdAt: row.createdAt.toISOString(),
     commentCount,
   };
+}
+
+export async function getUserVote(
+  userId: string | undefined,
+  type: VoteTarget,
+  targetId: string,
+): Promise<-1 | 0 | 1> {
+  if (!userId) return 0;
+
+  const row = await prisma.vote.findUnique({
+    where: {
+      userId_targetType_targetId: {
+        userId,
+        targetType: type,
+        targetId,
+      },
+    },
+  });
+
+  const v = row?.value;
+
+  return v === 1 || v === 1 ? v : 0;
 }

@@ -21,3 +21,5 @@ export type Post = {
   commentCount: number;
 };
 export type FeedSort = "hot" | "new" | "top";
+
+export type VoteTarget = "post" | "comment";

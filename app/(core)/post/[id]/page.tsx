@@ -1,0 +1,92 @@
+import { VoteButtons } from "@/components/feed/vote-buttons";
+import { Separator } from "@/components/ui/separator";
+import { getAuthorById, getPostById, listTags } from "@/lib/db/queries";
+import { formatRelativeTime } from "@/lib/format";
+import { cn } from "@/lib/utils";
+import { UserAvatar } from "@neondatabase/auth/react";
+import { ArrowLeft, MessageSquare, MessagesSquare, Share2 } from "lucide-react";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+export default async function PostPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  const post = await getPostById(id);
+
+  if (!post) return notFound();
+  const author = await getAuthorById(post.id);
+
+  const score = await getPostScore(post.id);
+
+  const tags = await listTags();
+  const primarySlug = post.tagSlugs[0];
+  const primaryTag = primarySlug
+    ? tags.find((t) => t.slug === primarySlug)
+    : undefined;
+
+  return (
+    <div>
+      <div>
+        <Link href={"/"}>
+          <ArrowLeft />
+          Back to Feed
+        </Link>
+        <article className="rounded-xl border border-border bg-card p-4 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+            <UserAvatar user={author} size="sm" />
+            <span className="font-medium text-foreground">
+              u/{author.username}
+            </span>
+            <span>·</span>
+            <span>{formatRelativeTime(post.createdAt)}</span>
+          </div>
+          <h1 className="text-balance text-2xl font-bold leading-tight text-foreground md:text-3xl">
+            {post.title}
+          </h1>
+          {primaryTag ? (
+            <div className="mt-3">
+              <Link
+                href={`/?tag=${encodeURIComponent(primaryTag.slug)}`}
+                className={cn(
+                  "inline-flex rounded-md px-2 py-0.5 text-sm font-medium",
+                  "bg-tag-bg text-tag-text",
+                )}
+              >
+                #{primaryTag.label}
+              </Link>
+            </div>
+          ) : null}
+          <div className="mt-6 whitespace-pre-wrap text-base leading-relaxed text-muted-foreground">
+            {post.body}
+          </div>
+          <Separator className="my-6" />
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              {/* <VoteButtons
+                target="post"
+                targetId={post.id}
+                score={score}
+                userVote={userVote}
+              /> */}
+              <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
+                <MessageSquare className="size-4" />
+                {post.commentCount} Comments
+              </span>
+            </div>
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+            >
+              <Share2 className="size-4" />
+              Share
+            </button>
+          </div>
+        </article>
+      </div>
+    </div>
+  );
+}

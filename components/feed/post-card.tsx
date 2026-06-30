@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { UserAvatar } from "@neondatabase/auth/react";
 import { MessageSquare, Share2 } from "lucide-react";
 import Link from "next/link";
+import { VoteButtons } from "./vote-buttons";
 
 function snippet(body: string, max = 160) {
   const t = body.replace(/\s+/g, " ").trim();
@@ -28,6 +29,13 @@ export function PostCard({
   const primaryTag = primarySlug ? tagsBySlug.get(primarySlug) : undefined;
   return (
     <article className="flex gap-2 rounded-xl border border-border bg-card p-3 transition-colors hover:border-border">
+      <VoteButtons
+        target="post"
+        targetId={post.id}
+        score={score}
+        userVote={userVote}
+      />
+
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <UserAvatar user={author} size="sm" />

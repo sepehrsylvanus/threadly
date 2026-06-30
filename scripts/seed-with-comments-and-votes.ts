@@ -7,8 +7,8 @@
  *   SEED_EXTRA=N       — append N procedural posts after curated ones (default 0)
  *   SEED_FORCE=1       — delete all posts, comments, votes then re-seed (destructive)
  */
-import { prisma } from "@/lib/prisma";
 import "dotenv/config";
+import { prisma } from "../lib/prisma";
 
 const DEMO_AUTHORS = [
   "seed_auth_alice",
@@ -238,6 +238,32 @@ async function seedCommentsAndVotes(postIds: string[]) {
 
   for (let idx = 0; idx < postIds.length; idx++) {
     const postId = postIds[idx];
+    const a = DEMO_AUTHORS[idx % DEMO_AUTHORS.length];
+    const b = DEMO_AUTHORS[(idx + 2) % DEMO_AUTHORS.length];
+    const c = DEMO_AUTHORS[(idx + 4) % DEMO_AUTHORS.length];
+
+    const top1 = await prisma.comment.create({
+      data: {
+        postId,
+        authorId: a,
+        body: "Seeded comment: this matches what we saw shipping a smaller stack.",
+      },
+    });
+    const top2 = await prisma.comment.create({
+      data: {
+        postId,
+        authorId: b,
+        body: "Seeded question: did you measure before/after on real devices?",
+      },
+    });
+    await prisma.comment.create({
+      data: {
+        postId,
+        authorId: c,
+        parentId: top2.id,
+        body: "Seeded nested reply — we used WebPageTest + mid-tier phone profiles.",
+      },
+    });
 
     for (let v = 0; v < DEMO_AUTHORS.length; v++) {
       votes.push({
@@ -247,7 +273,39 @@ async function seedCommentsAndVotes(postIds: string[]) {
         value: v % 3 === 0 ? -1 : 1,
       });
     }
+
+    votes.push(
+      {
+        userId: DEMO_AUTHORS[0],
+        targetType: "comment",
+        targetId: top1.id,
+        value: 1,
+      },
+      {
+        userId: DEMO_AUTHORS[1],
+        targetType: "comment",
+        targetId: top1.id,
+        value: 1,
+      },
+      {
+        userId: DEMO_AUTHORS[2],
+        targetType: "comment",
+        targetId: top2.id,
+        value: -1,
+      },
+      {
+        userId: DEMO_AUTHORS[3],
+        targetType: "comment",
+        targetId: top2.id,
+        value: 1,
+      },
+    );
   }
+
+  await prisma.vote.createMany({
+    data: votes,
+    skipDuplicates: true,
+  });
 }
 
 async function main() {
@@ -266,6 +324,8 @@ async function main() {
 
   if (existing > 0 && force) {
     console.log("SEED_FORCE: removing posts, comments, votes…");
+    await prisma.vote.deleteMany();
+    await prisma.comment.deleteMany();
     await prisma.postTag.deleteMany();
     await prisma.post.deleteMany();
   }
