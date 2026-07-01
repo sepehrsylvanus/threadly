@@ -16,7 +16,14 @@ export async function batchAuthorsForIds(
   const result = new Map<string, User>();
 
   for (const row of rows) {
-    result.set(row.id, { id: row.id, username: row.username });
+    result.set(row.id, {
+      id: row.id,
+      username: row.username,
+      displayName: row.displayName ?? undefined,
+      avatarUrl: row.avatarUrl ?? undefined,
+      bio: row.bio ?? undefined,
+      createdAt: row.createdAt.toISOString(),
+    });
   }
 
   for (const id of unique) {
@@ -146,8 +153,117 @@ export async function getPostById(id: string): Promise<Post | undefined> {
 export async function getAuthorById(authorId: string): Promise<User> {
   const row = await prisma.userProfile.findUnique({ where: { id: authorId } });
   return row
-    ? { id: row.id, username: row.username }
+    ? {
+        id: row.id,
+        username: row.username,
+        displayName: row.displayName ?? undefined,
+        avatarUrl: row.avatarUrl ?? undefined,
+        bio: row.bio ?? undefined,
+        createdAt: row.createdAt.toISOString(),
+      }
     : { id: authorId, username: `user_${authorId.slice(0, 6)}` };
+}
+
+export async function getUserByUsername(
+  username: string,
+): Promise<User | null> {
+  const row = await prisma.userProfile.findUnique({ where: { username } });
+  if (!row) return null;
+  return {
+    id: row.id,
+    username: row.username,
+    displayName: row.displayName ?? undefined,
+    avatarUrl: row.avatarUrl ?? undefined,
+    bio: row.bio ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function listPostsByAuthor(
+  authorId: string,
+  sort: FeedSort,
+  userId: string | undefined,
+): Promise<FeedPostRow[]> {
+  const where = { authorId };
+
+  const postRows = await prisma.post.findMany({
+    where,
+    orderBy: { createdAt: "asc" },
+    take: 50,
+  });
+
+  const ids = postRows.map((p) => p.id);
+  if (ids.length === 0) return [];
+
+  const [tagMap, ccMap, vsMap, uvMap] = await Promise.all([
+    tagsForPosts(ids),
+    commentCountsForPosts(ids),
+    voteSumsForPosts(ids),
+    userVotesForPosts(userId, ids),
+  ]);
+
+  const mapped = postRows.map((row) => {
+    const slugs = tagMap.get(row.id) ?? [];
+    const cc = ccMap.get(row.id) ?? 0;
+    const vs = vsMap.get(row.id) ?? 0;
+    return {
+      post: mapPostRow(row, slugs, cc),
+      voteScore: vs,
+      created: row.createdAt.getTime(),
+      userVote: uvMap.get(row.id) ?? 0,
+    };
+  });
+
+  if (sort === "new") {
+    mapped.sort((a, b) => b.created - a.created);
+  } else if (sort === "top") {
+    mapped.sort(
+      (a, b) =>
+        b.voteScore - a.voteScore ||
+        b.post.commentCount - a.post.commentCount ||
+        b.created - a.created,
+    );
+  } else {
+    mapped.sort((a, b) => {
+      const hotB = b.voteScore + 2 * b.post.commentCount;
+      const hotA = a.voteScore + 2 * a.post.commentCount;
+      return hotB - hotA || b.created - a.created;
+    });
+  }
+
+  return mapped.map((x) => ({
+    post: x.post,
+    score: x.voteScore,
+    userVote: x.userVote,
+  }));
+}
+
+export async function getUserKarma(userId: string): Promise<number> {
+  const [postIds, commentIds] = await Promise.all([
+    prisma.post.findMany({ where: { authorId: userId }, select: { id: true } }),
+    prisma.comment.findMany({
+      where: { authorId: userId },
+      select: { id: true },
+    }),
+  ]);
+
+  const allTargetIds = [
+    ...postIds.map((p) => p.id),
+    ...commentIds.map((c) => c.id),
+  ];
+
+  if (allTargetIds.length === 0) return 0;
+
+  const agg = await prisma.vote.aggregate({
+    where: { targetId: { in: allTargetIds } },
+    _sum: { value: true },
+  });
+
+  return Number(agg._sum.value ?? 0);
+}
+
+export async function getUserCommentCount(userId: string): Promise<number> {
+  return prisma.comment.count({ where: { authorId: userId } });
 }
 
 export async function getPostScore(postId: string): Promise<number> {

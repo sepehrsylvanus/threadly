@@ -28,7 +28,7 @@ export default async function PostPage({
   const post = await getPostById(id);
 
   if (!post) return notFound();
-  const author = await getAuthorById(post.id);
+  const author = await getAuthorById(post.authorId);
   const sessionUser = await getSessionUser();
   const score = await getPostScore(post.id);
   const userVote = await getUserVote(sessionUser?.id, "post", post.id);
@@ -50,10 +50,15 @@ export default async function PostPage({
         </Link>
         <article className="rounded-xl border border-border bg-card p-4 md:p-6">
           <div className="mb-4 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-            <UserAvatar user={author} size="sm" />
-            <span className="font-medium text-foreground">
+            <Link href={`/u/${author.username}`}>
+              <UserAvatar user={author} size="sm" />
+            </Link>
+            <Link
+              href={`/u/${author.username}`}
+              className="font-medium text-foreground hover:text-primary hover:underline"
+            >
               u/{author.username}
-            </span>
+            </Link>
             <span>·</span>
             <span>{formatRelativeTime(post.createdAt)}</span>
           </div>

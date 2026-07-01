@@ -38,9 +38,11 @@ export function PostCard({
 
       <div className="min-w-0 flex-1">
         <div className="mb-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <UserAvatar user={author} size="sm" />
+          <Link href={`/u/${author.username}`} className="shrink-0">
+            <UserAvatar user={author} size="sm" />
+          </Link>
           <Link
-            href={`/post/${post.id}`}
+            href={`/u/${author.username}`}
             className="font-medium text-foreground hover:text-primary hover:underline"
           >
             u/{author.username}

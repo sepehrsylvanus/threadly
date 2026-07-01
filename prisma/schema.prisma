@@ -16,6 +16,9 @@ datasource db {
 model UserProfile {
   id String @id
   username String @unique
+  displayName String? @map("display_name")
+  avatarUrl  String? @map("avatar_url")
+  bio        String?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   @@map("user_profiles")
 }

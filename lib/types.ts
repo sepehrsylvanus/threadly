@@ -3,6 +3,8 @@ export type User = {
   username: string;
   displayName?: string;
   avatarUrl?: string;
+  bio?: string;
+  createdAt?: string;
 };
 
 export type Tag = {

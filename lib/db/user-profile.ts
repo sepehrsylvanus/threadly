@@ -25,8 +25,10 @@ export async function ensureUserProfile(neon: {
     return {
       id: existing.id,
       username: existing.username,
-      displayName: neon.name,
-      avatarUrl: neon.image ?? undefined,
+      displayName: existing.displayName ?? neon.name,
+      avatarUrl: existing.avatarUrl ?? neon.image ?? undefined,
+      bio: existing.bio ?? undefined,
+      createdAt: existing.createdAt.toISOString(),
     };
   }
 
@@ -34,6 +36,8 @@ export async function ensureUserProfile(neon: {
     data: {
       id: neon.id,
       username: generateUsername(neon.name),
+      displayName: neon.name,
+      avatarUrl: neon.image,
     },
   });
 
@@ -42,5 +46,7 @@ export async function ensureUserProfile(neon: {
     username: row.username,
     displayName: neon.name,
     avatarUrl: neon.image ?? undefined,
+    bio: undefined,
+    createdAt: row.createdAt.toISOString(),
   };
 }

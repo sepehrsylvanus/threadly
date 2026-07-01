@@ -5,6 +5,7 @@ import { User } from "@/lib/types";
 import { VoteButtons } from "../feed/vote-buttons";
 import { Badge } from "../ui/badge";
 import { formatRelativeTime } from "@/lib/format";
+import Link from "next/link";
 import { useState } from "react";
 import { CommentComposer } from "./comment-composer";
 
@@ -31,9 +32,12 @@ export function CommentNode({
         />
         <div className="min-w-0 flex-1 border-l border-border pl-3">
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">
+            <Link
+              href={`/u/${node.author.username}`}
+              className="font-medium text-foreground hover:text-primary hover:underline"
+            >
               u/{node.author.username}
-            </span>
+            </Link>
             {isOp ? (
               <Badge
                 variant="secondary"

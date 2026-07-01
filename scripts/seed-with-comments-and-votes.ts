@@ -199,6 +199,24 @@ async function seedTags() {
   });
 }
 
+async function seedDemoUsers() {
+  const userRows = [
+    { id: "seed_auth_alice", username: "alice" },
+    { id: "seed_auth_bob", username: "bob" },
+    { id: "seed_auth_clara", username: "clara" },
+    { id: "seed_auth_dev", username: "dev" },
+    { id: "seed_auth_erin", username: "erin" },
+    { id: "seed_auth_frank", username: "frank" },
+  ];
+  for (const u of userRows) {
+    await prisma.userProfile.upsert({
+      where: { id: u.id },
+      update: { username: u.username },
+      create: { id: u.id, username: u.username },
+    });
+  }
+}
+
 async function insertPost(data: SeedPost) {
   const slugs = data.tagSlugs.length ? data.tagSlugs : ["webdev"];
   await prisma.tag.createMany({
@@ -309,6 +327,9 @@ async function seedCommentsAndVotes(postIds: string[]) {
 }
 
 async function main() {
+  console.log("Seeding demo users…");
+  await seedDemoUsers();
+
   console.log("Seeding tags…");
   await seedTags();
 
