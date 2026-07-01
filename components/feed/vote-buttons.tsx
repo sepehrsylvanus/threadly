@@ -1,4 +1,5 @@
 "use client";
+import { voteCommentAction } from "@/lib/actions/comments";
 import { votePostAction } from "@/lib/actions/posts";
 import { VoteTarget } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,8 @@ export function VoteButtons({
     startTransition(async () => {
       if (isPost) {
         await votePostAction(targetId, value);
+      } else {
+        await voteCommentAction(targetId, value);
       }
       router.refresh();
     });

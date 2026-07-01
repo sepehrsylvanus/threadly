@@ -1,6 +1,16 @@
 import { VoteButtons } from "@/components/feed/vote-buttons";
+import { CommentComposer } from "@/components/post/comment-composer";
+import { CommentThread } from "@/components/post/comment-thread";
 import { Separator } from "@/components/ui/separator";
-import { getAuthorById, getPostById, listTags } from "@/lib/db/queries";
+import { getSessionUser } from "@/lib/auth";
+import {
+  getAuthorById,
+  getCommentTree,
+  getPostById,
+  getPostScore,
+  getUserVote,
+  listTags,
+} from "@/lib/db/queries";
 import { formatRelativeTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { UserAvatar } from "@neondatabase/auth/react";
@@ -19,14 +29,17 @@ export default async function PostPage({
 
   if (!post) return notFound();
   const author = await getAuthorById(post.id);
-
+  const sessionUser = await getSessionUser();
   const score = await getPostScore(post.id);
+  const userVote = await getUserVote(sessionUser?.id, "post", post.id);
 
   const tags = await listTags();
   const primarySlug = post.tagSlugs[0];
   const primaryTag = primarySlug
     ? tags.find((t) => t.slug === primarySlug)
     : undefined;
+
+  const commentTree = await getCommentTree(post.id, sessionUser?.id);
 
   return (
     <div>
@@ -66,12 +79,12 @@ export default async function PostPage({
           <Separator className="my-6" />
           <div className="flex flex-wrap items-center gap-4">
             <div className="flex items-center gap-3">
-              {/* <VoteButtons
+              <VoteButtons
                 target="post"
                 targetId={post.id}
                 score={score}
                 userVote={userVote}
-              /> */}
+              />
               <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                 <MessageSquare className="size-4" />
                 {post.commentCount} Comments
@@ -86,6 +99,36 @@ export default async function PostPage({
             </button>
           </div>
         </article>
+
+        <section className="mt-8 rounded-xl border border-border bg-card p-4 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">
+              {post.commentCount} Comments
+            </h2>
+          </div>
+
+          {sessionUser ? (
+            <div className="mb-8">
+              <CommentComposer postId={post.id} user={sessionUser} />
+            </div>
+          ) : (
+            <p className="mb-8 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
+              <Link
+                href="/auth/sign-in"
+                className="font-medium text-primary hover:underline"
+              >
+                Log in
+              </Link>{" "}
+              to join the discussion.
+            </p>
+          )}
+
+          <CommentThread
+            tree={commentTree}
+            postAuthorId={post.authorId}
+            sessionUser={sessionUser}
+          />
+        </section>
       </div>
     </div>
   );
